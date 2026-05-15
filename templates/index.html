@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Disk Scheduler Analyzer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:      #0a0c10;
+    --surface: #111318;
+    --card:    #161a22;
+    --border:  #232833;
+    --accent:  #00e5ff;
+    --accent2: #ff6b6b;
+    --accent3: #a78bfa;
+    --text:    #e8eaf0;
+    --muted:   #6b7385;
+    --green:   #4ade80;
+    --yellow:  #fbbf24;
+    --mono:    'Space Mono', monospace;
+    --sans:    'DM Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Header ─────────────────────────── */
+  header {
+    padding: 28px 40px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    background: linear-gradient(180deg, #0d1017 0%, var(--bg) 100%);
+  }
+  header h1 {
+    font-family: var(--mono);
+    font-size: 1.1rem;
+    color: var(--accent);
+    letter-spacing: .06em;
+  }
+  header span {
+    font-size: .78rem;
+    color: var(--muted);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  /* ── Layout ─────────────────────────── */
+  .layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    min-height: calc(100vh - 69px);
+  }
+
+  /* ── Sidebar ─────────────────────────── */
+  aside {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 28px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    overflow-y: auto;
+  }
+
+  .field-label {
+    font-size: .7rem;
+    font-family: var(--mono);
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    margin-bottom: 7px;
+  }
+
+  input[type="text"], input[type="number"], select {
+    width: 100%;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 13px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: .82rem;
+    outline: none;
+    transition: border-color .2s;
+  }
+  input:focus, select:focus {
+    border-color: var(--accent);
+  }
+
+  .algo-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .algo-btn {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: .72rem;
+    padding: 9px 8px;
+    cursor: pointer;
+    transition: all .18s;
+    text-align: center;
+  }
+  .algo-btn:hover  { border-color: var(--accent); color: var(--accent); }
+  .algo-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(0,229,255,.07); }
+
+  .extra-opts { display: none; gap: 10px; flex-direction: column; }
+  .extra-opts.visible { display: flex; }
+
+  .run-btn, .compare-btn {
+    width: 100%;
+    padding: 12px;
+    border-radius: 7px;
+    border: none;
+    font-family: var(--mono);
+    font-size: .82rem;
+    cursor: pointer;
+    transition: all .18s;
+    letter-spacing: .05em;
+  }
+  .run-btn {
+    background: var(--accent);
+    color: #000;
+    font-weight: 700;
+  }
+  .run-btn:hover    { background: #33ecff; }
+  .compare-btn {
+    background: transparent;
+    border: 1px solid var(--accent3);
+    color: var(--accent3);
+  }
+  .compare-btn:hover { background: rgba(167,139,250,.1); }
+
+  /* ── Main Panel ─────────────────────── */
+  main {
+    padding: 32px 36px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    overflow-y: auto;
+  }
+
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    opacity: .35;
+  }
+  .empty-state svg { width: 56px; height: 56px; }
+  .empty-state p { font-family: var(--mono); font-size: .85rem; }
+
+  /* ── Result Cards ───────────────────── */
+  .result-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .algo-name {
+    font-family: var(--mono);
+    font-size: 1.35rem;
+    color: var(--accent);
+    letter-spacing: .04em;
+  }
+  .total-badge {
+    background: rgba(0,229,255,.1);
+    border: 1px solid rgba(0,229,255,.25);
+    border-radius: 20px;
+    padding: 5px 16px;
+    font-family: var(--mono);
+    font-size: .82rem;
+    color: var(--accent);
+  }
+
+  .explanation {
+    background: var(--card);
+    border-left: 3px solid var(--accent3);
+    border-radius: 0 6px 6px 0;
+    padding: 12px 16px;
+    font-size: .84rem;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  /* ── Disk Track Visualizer ──────────── */
+  .track-wrap {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px 28px;
+  }
+  .track-wrap h3 {
+    font-family: var(--mono);
+    font-size: .72rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    margin-bottom: 18px;
+  }
+  #track-canvas {
+    width: 100%;
+    display: block;
+    border-radius: 4px;
+  }
+
+  /* ── Steps Table ────────────────────── */
+  .steps-wrap {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .steps-wrap h3 {
+    font-family: var(--mono);
+    font-size: .72rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .steps-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .82rem;
+  }
+  .steps-table th {
+    font-family: var(--mono);
+    font-size: .68rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    padding: 10px 20px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .steps-table td {
+    padding: 9px 20px;
+    border-bottom: 1px solid rgba(255,255,255,.04);
+    font-family: var(--mono);
+  }
+  .steps-table tr:last-child td { border-bottom: none; }
+  .steps-table tr:hover td { background: rgba(255,255,255,.02); }
+  .tag-jump {
+    font-size: .65rem;
+    background: rgba(251,191,36,.12);
+    color: var(--yellow);
+    border: 1px solid rgba(251,191,36,.3);
+    border-radius: 4px;
+    padding: 2px 7px;
+    font-family: var(--mono);
+  }
+  .seek-bar {
+    display: inline-block;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--accent);
+    vertical-align: middle;
+    margin-left: 8px;
+    opacity: .5;
+  }
+
+  /* ── Compare Chart ──────────────────── */
+  .compare-wrap {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px 28px;
+  }
+  .compare-wrap h3 {
+    font-family: var(--mono);
+    font-size: .72rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    margin-bottom: 20px;
+  }
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 11px;
+  }
+  .bar-label {
+    font-family: var(--mono);
+    font-size: .72rem;
+    color: var(--muted);
+    width: 90px;
+    flex-shrink: 0;
+    text-align: right;
+  }
+  .bar-track {
+    flex: 1;
+    height: 20px;
+    background: var(--surface);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width .6s cubic-bezier(.4,0,.2,1);
+    display: flex;
+    align-items: center;
+    padding-left: 8px;
+    font-family: var(--mono);
+    font-size: .68rem;
+    color: #000;
+    font-weight: 700;
+  }
+  .bar-best  { background: var(--green); }
+  .bar-mid   { background: var(--accent); }
+  .bar-worst { background: var(--accent2); }
+
+  /* ── Spinner ────────────────────────── */
+  .spinner {
+    display: none;
+    width: 20px; height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    margin: auto;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Scrollbar ──────────────────────── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>// disk_scheduler</h1>
+  <span>OS Algorithm Analyzer</span>
+</header>
+
+<div class="layout">
+  <!-- ── Sidebar ───────────────────────────────── -->
+  <aside>
+    <div>
+      <div class="field-label">Disk Requests (comma-separated)</div>
+      <input type="text" id="requests" value="82,170,43,140,24,16,190" placeholder="e.g. 82,170,43,140">
+    </div>
+    <div>
+      <div class="field-label">Initial Head Position</div>
+      <input type="number" id="head" value="50" min="0">
+    </div>
+    <div>
+      <div class="field-label">Disk Size (cylinders)</div>
+      <input type="number" id="disk_size" value="200" min="1">
+    </div>
+
+    <div>
+      <div class="field-label">Algorithm</div>
+      <div class="algo-grid" id="algo-grid">
+        <button class="algo-btn active" data-algo="fcfs">FCFS</button>
+        <button class="algo-btn" data-algo="sstf">SSTF</button>
+        <button class="algo-btn" data-algo="scan">SCAN</button>
+        <button class="algo-btn" data-algo="cscan">C-SCAN</button>
+        <button class="algo-btn" data-algo="look">LOOK</button>
+        <button class="algo-btn" data-algo="clook">C-LOOK</button>
+        <button class="algo-btn" data-algo="rss">RSS</button>
+        <button class="algo-btn" data-algo="lifo">LIFO</button>
+        <button class="algo-btn" data-algo="nstep">N-Step</button>
+        <button class="algo-btn" data-algo="fscan">F-SCAN</button>
+      </div>
+    </div>
+
+    <div class="extra-opts" id="extra-direction">
+      <div>
+        <div class="field-label">Initial Direction</div>
+        <select id="direction">
+          <option value="right">Right →</option>
+          <option value="left">← Left</option>
+        </select>
+      </div>
+    </div>
+    <div class="extra-opts" id="extra-n">
+      <div>
+        <div class="field-label">N (batch size)</div>
+        <input type="number" id="n_val" value="3" min="1">
+      </div>
+    </div>
+
+    <button class="run-btn" id="run-btn">▶ RUN ALGORITHM</button>
+    <button class="compare-btn" id="compare-btn">⇌ COMPARE ALL</button>
+  </aside>
+
+  <!-- ── Main Panel ─────────────────────────────── -->
+  <main id="main">
+    <div class="empty-state" id="empty-state">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+        <circle cx="12" cy="12" r="9"/>
+        <circle cx="12" cy="12" r="3"/>
+        <line x1="12" y1="3" x2="12" y2="6"/>
+        <line x1="12" y1="18" x2="12" y2="21"/>
+        <line x1="3" y1="12" x2="6" y2="12"/>
+        <line x1="18" y1="12" x2="21" y2="12"/>
+      </svg>
+      <p>Select an algorithm and press RUN</p>
+    </div>
+    <div id="spinner" class="spinner"></div>
+  </main>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let selectedAlgo = "fcfs";
+
+// ── Algorithm selection ──────────────────────────
+document.querySelectorAll(".algo-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".algo-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    selectedAlgo = btn.dataset.algo;
+    const dir = ["scan","cscan","look","clook"];
+    $("extra-direction").classList.toggle("visible", dir.includes(selectedAlgo));
+    $("extra-n").classList.toggle("visible", selectedAlgo === "nstep");
+  });
+});
+
+// ── Run ─────────────────────────────────────────
+$("run-btn").addEventListener("click", async () => {
+  const payload = {
+    requests:   $("requests").value,
+    head:       $("head").value,
+    disk_size:  $("disk_size").value,
+    direction:  $("direction").value,
+    n:          $("n_val").value,
+    algorithm:  selectedAlgo
+  };
+  showSpinner(true);
+  try {
+    const res  = await fetch("/run", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+    renderResult(data);
+  } finally { showSpinner(false); }
+});
+
+// ── Compare ──────────────────────────────────────
+$("compare-btn").addEventListener("click", async () => {
+  const payload = {
+    requests:  $("requests").value,
+    head:      $("head").value,
+    disk_size: $("disk_size").value
+  };
+  showSpinner(true);
+  try {
+    const res  = await fetch("/compare", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+    renderCompare(data);
+  } finally { showSpinner(false); }
+});
+
+// ── Helpers ──────────────────────────────────────
+function showSpinner(on) {
+  $("spinner").style.display = on ? "block" : "none";
+}
+
+function clearMain() {
+  $("empty-state").style.display = "none";
+  document.querySelectorAll(".result-section,.compare-section").forEach(e => e.remove());
+}
+
+// ── Render single result ─────────────────────────
+function renderResult(d) {
+  clearMain();
+  const main = $("main");
+
+  const sec = document.createElement("div");
+  sec.className = "result-section";
+  sec.style.display = "flex";
+  sec.style.flexDirection = "column";
+  sec.style.gap = "22px";
+
+  // header
+  sec.innerHTML = `
+    <div class="result-header">
+      <span class="algo-name">${d.name}</span>
+      <span class="total-badge">Total Seek: ${d.total} cylinders</span>
+    </div>
+    <div class="explanation">${d.explanation}</div>
+  `;
+
+  // canvas track
+  const trackWrap = document.createElement("div");
+  trackWrap.className = "track-wrap";
+  trackWrap.innerHTML = `<h3>Head Movement Trace</h3><canvas id="track-canvas" height="160"></canvas>`;
+  sec.appendChild(trackWrap);
+
+  // steps table
+  const stepsWrap = document.createElement("div");
+  stepsWrap.className = "steps-wrap";
+  let rows = d.steps.map((s, i) => `
+    <tr>
+      <td style="color:var(--muted)">${i+1}</td>
+      <td>${s.from}</td>
+      <td>${s.to} ${s.jump ? '<span class="tag-jump">JUMP</span>' : ''}</td>
+      <td>
+        ${s.seek}
+        <span class="seek-bar" style="width:${Math.min(s.seek/2,120)}px"></span>
+      </td>
+    </tr>
+  `).join("");
+  stepsWrap.innerHTML = `
+    <h3>Step-by-Step Breakdown</h3>
+    <table class="steps-table">
+      <thead><tr><th>#</th><th>From</th><th>To</th><th>Seek Distance</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+  sec.appendChild(stepsWrap);
+  main.appendChild(sec);
+
+  // draw canvas after DOM insertion
+  requestAnimationFrame(() => drawTrack(d));
+}
+
+// ── Draw track canvas ────────────────────────────
+function drawTrack(d) {
+  const canvas = document.getElementById("track-canvas");
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.parentElement.clientWidth - 56;
+  canvas.style.width  = W + "px";
+  canvas.style.height = "160px";
+  canvas.width  = W * dpr;
+  canvas.height = 160 * dpr;
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+
+  const diskSize = parseInt($("disk_size").value) || 200;
+  const PAD = 36, H = 160;
+  const trackW = W - PAD * 2;
+
+  const toX = v => PAD + (v / (diskSize - 1)) * trackW;
+
+  // grid lines
+  ctx.strokeStyle = "#232833";
+  ctx.lineWidth = 1;
+  for (let v = 0; v <= diskSize; v += Math.ceil(diskSize / 10)) {
+    const x = toX(v);
+    ctx.beginPath(); ctx.moveTo(x, 16); ctx.lineTo(x, H - 20); ctx.stroke();
+    ctx.fillStyle = "#6b7385";
+    ctx.font = "10px 'Space Mono'";
+    ctx.textAlign = "center";
+    ctx.fillText(v, x, H - 6);
+  }
+
+  // path
+  const all = [d.head, ...d.steps.map(s => s.to)];
+  ctx.beginPath();
+  all.forEach((v, i) => {
+    const x = toX(v);
+    const y = 20 + i * ((H - 50) / Math.max(all.length - 1, 1));
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = "rgba(0,229,255,.5)";
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // dots
+  all.forEach((v, i) => {
+    const x = toX(v);
+    const y = 20 + i * ((H - 50) / Math.max(all.length - 1, 1));
+    const isJump = d.steps[i - 1]?.jump;
+    ctx.beginPath();
+    ctx.arc(x, y, i === 0 ? 6 : 4, 0, Math.PI * 2);
+    ctx.fillStyle = i === 0 ? "#fbbf24" : isJump ? "#ff6b6b" : "#00e5ff";
+    ctx.fill();
+  });
+
+  // legend
+  ctx.font = "10px 'Space Mono'";
+  ctx.fillStyle = "#fbbf24"; ctx.beginPath(); ctx.arc(PAD, H - 32, 4, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = "#6b7385"; ctx.fillText("HEAD START", PAD + 10, H - 28);
+  ctx.fillStyle = "#00e5ff"; ctx.beginPath(); ctx.arc(PAD + 130, H - 32, 4, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = "#6b7385"; ctx.fillText("REQUEST", PAD + 142, H - 28);
+}
+
+// ── Render compare ───────────────────────────────
+function renderCompare(data) {
+  clearMain();
+  const main = $("main");
+
+  const sorted = Object.entries(data).sort((a, b) => a[1].total - b[1].total);
+  const max = sorted[sorted.length - 1][1].total || 1;
+
+  const sec = document.createElement("div");
+  sec.className = "compare-section";
+  sec.style.display = "flex";
+  sec.style.flexDirection = "column";
+  sec.style.gap = "22px";
+
+  sec.innerHTML = `
+    <div class="result-header">
+      <span class="algo-name">Algorithm Comparison</span>
+      <span class="total-badge">All 10 Algorithms · Same Input</span>
+    </div>
+    <div class="compare-wrap">
+      <h3>Total Seek Time (cylinders) — lower is better</h3>
+      ${sorted.map(([key, val], i) => {
+        const pct = (val.total / max * 100).toFixed(1);
+        const cls = i === 0 ? "bar-best" : i >= sorted.length - 2 ? "bar-worst" : "bar-mid";
+        return `
+          <div class="bar-row">
+            <div class="bar-label">${val.label}</div>
+            <div class="bar-track">
+              <div class="bar-fill ${cls}" style="width:${pct}%">${val.total}</div>
+            </div>
+          </div>
+        `;
+      }).join("")}
+    </div>
+    <div style="font-family:var(--mono);font-size:.72rem;color:var(--muted);line-height:1.8">
+      <span style="color:var(--green)">■</span> Best &nbsp;
+      <span style="color:var(--accent)">■</span> Mid &nbsp;
+      <span style="color:var(--accent2)">■</span> Worst (top 2 highest)
+      &nbsp;·&nbsp; RSS results are non-deterministic (random).
+    </div>
+  `;
+
+  main.appendChild(sec);
+}
+
+// enter key shortcut
+document.addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey) $("run-btn").click();
+});
+</script>
+</body>
+</html>
