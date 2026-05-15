@@ -51,5 +51,31 @@ Make sure you have Python 3 installed on your machine.
 ### Installation & Execution
 
 1. **Clone this repository or extract the project files:**
-   ```bash
-   cd hdd-scheduling-simulator
+2. **Install Flask**
+```bash
+pip install flask
+```
+3. Run the application:
+```bash
+python app.py
+```
+4. **Open your browser:**
+   Navigate to `http://127.0.0.1:5000/` to explore the simulator interface.
+
+---
+
+## 🌐 API Endpoint Documentation
+
+### 1. Execute Algorithm
+* **Endpoint:** `/run`
+* **Method:** `POST`
+* **Payload Format:**
+  ```json
+  {
+    "requests": "82,170,43,140,24,10,190",
+    "head": 50,
+    "disk_size": 200,
+    "direction": "right",
+    "n": 3,
+    "algorithm": "sstf"
+  }
